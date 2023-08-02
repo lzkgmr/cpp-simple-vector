@@ -33,20 +33,7 @@ ReserveProxyObj Reserve(size_t capacity_to_reserve) {
 template <typename Type>
 class SimpleVector
 {
-private:
-    ArrayPtr<Type> items_;    
-    size_t capacity_ = 0;
-    size_t size_ = 0;  
-    
-    void IncreaseCapacity(size_t new_size) {
-        size_t new_array_capacity = max(new_size, 2 * capacity_);
-        ArrayPtr<Type>* new_array = new ArrayPtr<Type>(new_array_capacity);
-        copy(items_.Get(), items_.Get() + size_, new_array->Get());
-        items_.swap(*new_array);
-        delete new_array;
-        capacity_ = new_array_capacity;
-    }
-    
+
 public:
     using Iterator = Type*;
     using ConstIterator = const Type*;
@@ -63,35 +50,29 @@ public:
         Reserve(capacity_to_reserve.ReserveCapasity());
     }
 
-    SimpleVector(size_t size, const Type& value) {
-        ArrayPtr<Type>* new_array = new ArrayPtr<Type>(size);
-        items_.swap(*new_array);
+    SimpleVector(size_t size, const Type& value) : capacity_(size), size_(size)
+    {
+        ArrayPtr<Type> new_array(size);
+        items_.swap(new_array);
         fill(items_.Get(), items_.Get() + size, value);
-        size_ = size;
-        capacity_ = size;
     }
 
-    SimpleVector(std::initializer_list<Type> init) {
-        size_t list_size = init.size();
-        ArrayPtr<Type>* new_array = new ArrayPtr<Type>(list_size);
-        items_.swap(*new_array);
+    SimpleVector(std::initializer_list<Type> init) : capacity_(init.size()), size_(init.size()) 
+    {
+        ArrayPtr<Type> new_array(init.size());
+        items_.swap(new_array);
         copy(init.begin(), init.end(), items_.Get());
-        size_ = list_size;
-        capacity_ = list_size;
     }
 
-    SimpleVector(const SimpleVector& other) {
-        ArrayPtr<Type>* new_array = new ArrayPtr<Type>(other.size_);
-        copy(other.begin(), other.end(), new_array->Get());
-        items_.swap(*new_array);
-        size_ = other.size_;
-        capacity_ = other.capacity_;
+    SimpleVector(const SimpleVector& other) : capacity_(other.capacity_), size_(other.size_) 
+    {
+        ArrayPtr<Type> new_array(other.size_);
+        copy(other.begin(), other.end(), new_array.Get());
+        items_.swap(new_array);
     }
 
-    SimpleVector(SimpleVector&& other) {
-        items_ = move(other.items_);
-        capacity_ = other.capacity_;
-        size_ = other.size_;
+    SimpleVector(SimpleVector&& other) : items_(move(other.items_)), capacity_(other.capacity_), size_(other.size_) 
+    {
         other.capacity_ = 0;
         other.size_ = 0;
     }
@@ -100,9 +81,8 @@ public:
 
     SimpleVector& operator=(const SimpleVector& rhs) {
         if (this != &rhs) {
-            SimpleVector<Type>* new_vec = new SimpleVector<Type>(rhs);
-            this->swap(*new_vec);
-            delete new_vec;
+            SimpleVector<Type> new_vec(rhs);
+            this->swap(new_vec);
         }
         return *this;
     }
@@ -242,10 +222,12 @@ Iterator Insert(ConstIterator pos, Type&& value) {
     }
 
     Type& operator[](size_t index) noexcept {
+        assert(index <= size_);
         return items_[index];
     }
 
     const Type& operator[](size_t index) const noexcept {
+        assert(index <= size_);
         return items_[index];
     }
 
@@ -304,6 +286,20 @@ Iterator Insert(ConstIterator pos, Type&& value) {
     ConstIterator cend() const noexcept {
         return end();
     }
+    
+private:
+    ArrayPtr<Type> items_;    
+    size_t capacity_ = 0;
+    size_t size_ = 0;  
+    
+    void IncreaseCapacity(size_t new_size) {
+        size_t new_array_capacity = max(new_size, 2 * capacity_);
+        ArrayPtr<Type> new_array(new_array_capacity);
+        copy(items_.Get(), items_.Get() + size_, new_array.Get());
+        items_.swap(new_array);
+        capacity_ = new_array_capacity;
+    }
+    
 };
 
 
@@ -327,12 +323,12 @@ inline bool operator<(const SimpleVector<Type>& lhs, const SimpleVector<Type>& r
 
 template <typename Type>
 inline bool operator<=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
-    return lhs == rhs || lhs < rhs;
+    return !(rhs < lhs);
 }
 
 template <typename Type>
 inline bool operator>(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
-    return !(lhs <= rhs);
+    return rhs < lhs;
 }
 
 template <typename Type>
